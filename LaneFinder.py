@@ -470,8 +470,8 @@ def process_image(img):
     # Define kernel size
     kernel_size= 7
     #combine all sobel thresholding functions
-    abs_sobel_thresh_x = abs_sobel_thresh(gray_image, orient='x', sobel_kernel=kernel_size, thresh=(10, 255))
-    abs_sobel_thresh_y = abs_sobel_thresh(gray_image, orient='y', sobel_kernel=kernel_size, thresh=(30, 255))
+    abs_sobel_thresh_x = abs_sobel_thresh(gray_image, orient='x', sobel_kernel=kernel_size, thresh=(20, 255))
+    abs_sobel_thresh_y = abs_sobel_thresh(gray_image, orient='y', sobel_kernel=kernel_size, thresh=(50, 255))
     mag_sobel = mag_thresh(gray_image, sobel_kernel=kernel_size, mag_thresh=(50, 255))
     dir_sobel = dir_threshold(gray_image, sobel_kernel=kernel_size, thresh=(.5, 1.25))
     sobel_img = np.zeros_like(dir_sobel)
@@ -533,8 +533,8 @@ def process_video(img):
     # Define kernel size
     kernel_size= 7
     #combine all sobel thresholding functions
-    abs_sobel_thresh_x = abs_sobel_thresh(gray_image, orient='x', sobel_kernel=kernel_size, thresh=(10, 255))
-    abs_sobel_thresh_y = abs_sobel_thresh(gray_image, orient='y', sobel_kernel=kernel_size, thresh=(30, 255))
+    abs_sobel_thresh_x = abs_sobel_thresh(gray_image, orient='x', sobel_kernel=kernel_size, thresh=(20, 255))
+    abs_sobel_thresh_y = abs_sobel_thresh(gray_image, orient='y', sobel_kernel=kernel_size, thresh=(50, 255))
     mag_sobel = mag_thresh(gray_image, sobel_kernel=kernel_size, mag_thresh=(50, 255))
     dir_sobel = dir_threshold(gray_image, sobel_kernel=kernel_size, thresh=(.5, 1.25))
     sobel_img = np.zeros_like(dir_sobel)
@@ -600,11 +600,7 @@ if __name__ == '__main__':
     img = mpimg.imread('./test_images/straight_lines1.jpg')
     
     #original image
-    a = [529,495]
-    c = [760, 495]
-    d = [1056, 685]
-    b = [244,685]
-    src = np.float32([a,b,c,d])
+    src = np.float32([[529,495],[244,685],[760, 495],[1056, 685]])
 
     #modified image
     dst = np.float32([[200,20],[200,680],[1000,20],[1000,680]])
@@ -617,13 +613,17 @@ if __name__ == '__main__':
     print('Destination:')
     print(src)
     
-    undistort_image = apply_projective_transform(M, img)
-    
+    draw_image = np.copy(img)
     fig1 = plt.figure('Projecive Transform')
+    cv2.line(draw_image, (src[0,0], src[0,1]), (src[1,0], src[1,1]), (255,0,0))
+    cv2.line(draw_image, (src[2,0], src[2,1]), (src[3,0], src[3,1]), (255,0,0))
+    
+    proj_image = apply_projective_transform(M, draw_image)
+    
     fig1.add_subplot(2,1,1)
-    plt.imshow(img)
+    plt.imshow(draw_image)
     fig1.add_subplot(2,1,2)
-    plt.imshow(undistort_image)
+    plt.imshow(proj_image)
     #plt.show()
     fig1.savefig('output_images/warped_straight_lines.png')
     
@@ -631,14 +631,14 @@ if __name__ == '__main__':
     #camera calibration
     global mtx
     global dist
-    #mtx, dist = get_camera_calibration()
+    mtx, dist = get_camera_calibration()
     #functionality for saving then loading later
-    #np.savetxt('mtx.txt', mtx)
-    #np.savetxt('dist.txt', dist)   
-    mtx = np.loadtxt("mtx.txt", delimiter=" ")   
-    dist = np.loadtxt("dist.txt", delimiter=" ")
+    np.savetxt('mtx.txt', mtx)
+    np.savetxt('dist.txt', dist)   
+    #mtx = np.loadtxt("mtx.txt", delimiter=" ")   
+    #dist = np.loadtxt("dist.txt", delimiter=" ")
     
-    undistort_image = undistort(img, mtx, dist)
+    
     
     print('mtx:')
     print(mtx)
@@ -646,8 +646,19 @@ if __name__ == '__main__':
     print('dist:')
     print(dist)
     
+    checkerboard = mpimg.imread('./camera_cal/calibration1.jpg')
+    undistort_checkerboard = undistort(checkerboard, mtx, dist)
+    undistort_image = undistort(img, mtx, dist)
+    fig1 = plt.figure('Undistort Image')
+    fig1.add_subplot(2,1,1)
+    plt.imshow(checkerboard)
+    fig1.add_subplot(2,1,2)
+    plt.imshow(undistort_checkerboard)
+    #plt.show()
+    fig1.savefig('output_images/undistort_checkerboard_output.png')
     
     
+    undistort_image = undistort(img, mtx, dist)
     fig1 = plt.figure('Undistort Image')
     fig1.add_subplot(2,1,1)
     plt.imshow(img)
@@ -657,26 +668,23 @@ if __name__ == '__main__':
     fig1.savefig('output_images/undistort_output.png')
     
 
-    i = 1
+
     image_files = glob.glob('./test_images/*.jpg')
-    if i == 1:
-        for fname in image_files:
-            #
-            img = mpimg.imread(fname)
-            img_show = process_image(img)
-            cv2.imwrite('output_images/example_output' + str(i) +'.png', img_show)
-            i = i + 1
-            break
-        
+    
+    i = 0
+    for fname in image_files:
+        #
+        img = mpimg.imread(fname)
+        img_show = process_image(img)
+        cv2.imwrite('output_images/example_output' + str(i) +'.png', img_show)
+        i = i + 1
 
 
-    video = 1
-    if video == 1:
-        white_output = 'output_images/project_video_processed.mp4'
-        clip1 = VideoFileClip("project_video.mp4")
-        clip2 = VideoFileClip("challenge_video.mp4")
-        white_clip = clip1.fl_image(process_video) #NOTE: this function expects color images!!
-        white_clip.write_videofile(white_output, audio=False)
+    white_output = 'output_images/project_video_processed.mp4'
+    clip1 = VideoFileClip("project_video.mp4")
+    clip2 = VideoFileClip("challenge_video.mp4")
+    white_clip = clip1.fl_image(process_video)
+    white_clip.write_videofile(white_output, audio=False)
 
 
     
