@@ -210,7 +210,7 @@ def find_lines_windows(binary_warped, draw_boxes=True):
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = (255, 0, 0)
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = (0, 0, 255)
 	# Return the result image
-    return out_img, left_fitx, right_fitx, left_fit, right_fit, ploty
+    return out_img, left_fitx, right_fitx, left_fit, right_fit, ploty, histogram
     
    
 def find_curvature(image, leftx, rightx, left_fit, right_fit, ploty ):
@@ -218,7 +218,7 @@ def find_curvature(image, leftx, rightx, left_fit, right_fit, ploty ):
     FInd the curvature of 2 lines 
     
     Radius of curve = (1 + (2Ay + B)^2)^1.5 / |2A|
-    source: Udacity
+    source: Udacity & Slack
     """
     ploty = np.array(ploty).flatten()
     leftx = np.array(leftx).flatten()
@@ -241,9 +241,18 @@ def find_curvature(image, leftx, rightx, left_fit, right_fit, ploty ):
     right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
 
     #print on image
-    image = cv2.putText(image,str(int(left_curverad)), (100,100), cv2.FONT_HERSHEY_SIMPLEX, 2,(255,0,0),4,cv2.LINE_AA)
-    image = cv2.putText(image,str(int(right_curverad)), (1000,100), cv2.FONT_HERSHEY_SIMPLEX, 2,(255,0,0),4,cv2.LINE_AA)
-    
+    image = cv2.putText(image,'Curvature: ' + str(int(left_curverad)) + 'meters', (100,100), cv2.FONT_HERSHEY_SIMPLEX, 2,(100,100,100),4,cv2.LINE_AA)
+    #image = cv2.putText(image,str(int(right_curverad)), (1000,100), cv2.FONT_HERSHEY_SIMPLEX, 2,(255,0,0),4,cv2.LINE_AA)
+
+    # meters from center
+    xm_per_pix = 3.7/700 # meteres per pixel in x dimension
+    screen_middel_pixel = img.shape[1]/2
+    left_lane_pixel = rightx[719]    # x position for left lane
+    right_lane_pixel = leftx[719]   # x position for right lane
+    car_middle_pixel = int((right_lane_pixel + left_lane_pixel)/2)
+    screen_off_center = screen_middel_pixel-car_middle_pixel
+    meters_off_center = xm_per_pix * screen_off_center
+    image = cv2.putText(image,str('Radius: ' +'%.5f' % meters_off_center + 'm'), (100,200), cv2.FONT_HERSHEY_SIMPLEX, 2,(100,100,100),4,cv2.LINE_AA)
     return image
 
 def abs_sobel_thresh(img, orient='x', sobel_kernel=3, thresh=(0, 255)):
@@ -343,7 +352,7 @@ def get_camera_calibration():
         img = mpimg.imread(fname)
     
         # Use cv2.calibrateCamera and cv2.undistort()
-        gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
         ret, corners = cv2.findChessboardCorners(gray, (nx,ny),None)
         shape = (gray.shape[0], gray.shape[1])
         if ret == True:
@@ -362,13 +371,15 @@ def undistort(img, mtx, dist):
     return undist
 
     
-def draw_lines(warped, undist, Minv, left_fitx, right_fitx, ploty):
+def draw_lines(image, undist, Minv, left_fitx, right_fitx, ploty):
     """
     Draws lines in image
     
     Source: Udacity
     
     """
+    
+    warped = np.copy(image)
     ploty = np.array(ploty).flatten()
     left_fitx = np.array(left_fitx).flatten()
     right_fitx = np.array(right_fitx).flatten()
@@ -391,7 +402,7 @@ def draw_lines(warped, undist, Minv, left_fitx, right_fitx, ploty):
     newwarp = cv2.warpPerspective(color_warp, Minv, (color_warp.shape[1], color_warp.shape[0])) 
     # Combine the result with the original image
     result = cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
-    return result
+    return result, color_warp
     
 def hls_select(img, thresh=(0, 255)):
     """
@@ -402,14 +413,15 @@ def hls_select(img, thresh=(0, 255)):
     # 1) Convert to HLS color space
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     S = hls[:,:,2]
+    L = hls[:,:,1]
     # 2) Apply a threshold to the S channel
     # 3) Return a binary image of threshold result
-    binary = np.zeros_like(S)
-    binary[(S > thresh[0]) & (S <= thresh[1])] = 1
+    binary = np.zeros_like(L)
+    binary[(L > thresh[0]) & (L <= thresh[1])] = 1
     #binary_output = np.copy(img) # placeholder line
     return binary
     
-def gaussian_blur(img, kernel_size=5):
+def gaussian_blur(img, kernel_size=3):
     """
     Applies guassian kernel to image  
     """
@@ -447,6 +459,18 @@ def apply_projective_transform(M, image):
     warped_image = cv2.warpPerspective(image, M, image_size, flags=cv2.INTER_NEAREST)
     return warped_image
     
+def convert_to_3channel(image):
+    """
+    Covert single channel image to 3 channels
+    
+    """
+    i = np.zeros((720,1280,3))
+    
+    i[:,:,0] = image/np.max(image) * 255
+    i[:,:,1] = image/np.max(image) * 255
+    i[:,:,2] = image/np.max(image) * 255
+
+    return i
 
 def process_image(img):
     """
@@ -464,16 +488,18 @@ def process_image(img):
     
     #blur image and convert to hsl and grayscale (for processing)
     blur_image = gaussian_blur(undistort_image)
-    hsl_image = hls_select(blur_image, thresh=(100, 200))
+    
+    hsl_image = hls_select(blur_image, thresh=(150, 255))
     gray_image = grayscale(blur_image)
+    gray_image[(gray_image < 200)] = 0
     
     # Define kernel size
-    kernel_size= 7
+    kernel_size= 5
     #combine all sobel thresholding functions
-    abs_sobel_thresh_x = abs_sobel_thresh(gray_image, orient='x', sobel_kernel=kernel_size, thresh=(20, 255))
-    abs_sobel_thresh_y = abs_sobel_thresh(gray_image, orient='y', sobel_kernel=kernel_size, thresh=(50, 255))
-    mag_sobel = mag_thresh(gray_image, sobel_kernel=kernel_size, mag_thresh=(50, 255))
-    dir_sobel = dir_threshold(gray_image, sobel_kernel=kernel_size, thresh=(.5, 1.25))
+    abs_sobel_thresh_x = abs_sobel_thresh(gray_image, orient='x', sobel_kernel=kernel_size, thresh=(10, 255))
+    abs_sobel_thresh_y = abs_sobel_thresh(gray_image, orient='y', sobel_kernel=kernel_size, thresh=(40, 255))
+    mag_sobel = mag_thresh(gray_image, sobel_kernel=kernel_size, mag_thresh=(15, 255))
+    dir_sobel = dir_threshold(gray_image, sobel_kernel=kernel_size, thresh=(.45, 1.25))
     sobel_img = np.zeros_like(dir_sobel)
     sobel_img[((abs_sobel_thresh_x == 1) & (abs_sobel_thresh_y == 1)) | ((mag_sobel == 1) & (dir_sobel == 1))] = 1  
     
@@ -490,7 +516,7 @@ def process_image(img):
     #vertices = np.array([[(100,690),(600,300), (800,300), (1100,690)]], dtype=np.int32)
     roi_image = region_of_interest(combine_image, vertices)
     
-    fig1 = plt.figure('Color and Regiion Processing')
+    fig1 = plt.figure('Color and Region Processing')
     fig1.add_subplot(2,1,1)
     plt.imshow(combine_image)
     fig1.add_subplot(2,1,2)
@@ -500,19 +526,40 @@ def process_image(img):
     
     #apply projective transform
     birds_eye = apply_projective_transform(M, roi_image)
+    
+    b2 = np.copy(birds_eye)
 
     #find the lanes in the window
-    out_image, left_fitx, right_fitx, left_fit, right_fit, ploty = find_lines_windows(birds_eye)
+    out_image, left_fitx, right_fitx, left_fit, right_fit, ploty, histogram = find_lines_windows(birds_eye)
     cv2.imwrite('output_images/color_fit_lines.png', out_image)
     
 
     #calculate curvature and display on image
-    
-    
-    line_image = draw_lines(birds_eye, undistort_image, Minv, left_fitx, right_fitx, ploty)
+    line_image, color_warp = draw_lines(birds_eye, undistort_image, Minv, left_fitx, right_fitx, ploty)
     img_show = find_curvature(line_image, left_fitx, right_fitx, left_fit, right_fit, ploty)
+
+    diagScreen = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    diagScreen[0:720, 0:1280] = img_show
+    diagScreen[0:240, 1280:1600] = cv2.resize(convert_to_3channel(roi_image), (320,240), interpolation=cv2.INTER_AREA) 
+    diagScreen[0:240, 1600:1920] = cv2.resize(convert_to_3channel(birds_eye), (320,240), interpolation=cv2.INTER_AREA)
+    diagScreen[290:530, 1280:1600] = cv2.resize(convert_to_3channel(histogram), (320,240), interpolation=cv2.INTER_AREA)
+    diagScreen[290:530, 1600:1920] = cv2.resize(color_warp, (320,240), interpolation=cv2.INTER_AREA)*4
     
-    return img_show
+    diagScreen[600:1080, 1280:1920] = cv2.resize(out_image, (640,480), interpolation=cv2.INTER_AREA)*4
+    
+    font = cv2.FONT_HERSHEY_COMPLEX
+    middlepanel = np.zeros((120, 1280, 3), dtype=np.uint8)
+    cv2.putText(middlepanel, 'HSL image.    |       sobel image       |       Combined image', (30, 60), font, 1, (255,0,0), 2)
+    diagScreen[720:840, 0:1280] = middlepanel
+
+    diagScreen[840:1080, 0:320] = cv2.resize(convert_to_3channel(hsl_image), (320,240), interpolation=cv2.INTER_AREA)
+    diagScreen[840:1080, 370:690] = cv2.resize(convert_to_3channel(sobel_img), (320,240), interpolation=cv2.INTER_AREA)
+    diagScreen[840:1080, 740:1060] = cv2.resize(convert_to_3channel(combine_image), (320,240), interpolation=cv2.INTER_AREA)
+
+    
+
+    return diagScreen
+    #return img_show
     
 def process_video(img):
     """
@@ -527,16 +574,18 @@ def process_video(img):
     
     #blur image and convert to hsl and grayscale (for processing)
     blur_image = gaussian_blur(undistort_image)
-    hsl_image = hls_select(blur_image, thresh=(100, 200))
+    
+    hsl_image = hls_select(blur_image, thresh=(150, 255))
     gray_image = grayscale(blur_image)
+    gray_image[(gray_image < 200)] = 0
     
     # Define kernel size
-    kernel_size= 7
+    kernel_size= 5
     #combine all sobel thresholding functions
-    abs_sobel_thresh_x = abs_sobel_thresh(gray_image, orient='x', sobel_kernel=kernel_size, thresh=(20, 255))
-    abs_sobel_thresh_y = abs_sobel_thresh(gray_image, orient='y', sobel_kernel=kernel_size, thresh=(50, 255))
-    mag_sobel = mag_thresh(gray_image, sobel_kernel=kernel_size, mag_thresh=(50, 255))
-    dir_sobel = dir_threshold(gray_image, sobel_kernel=kernel_size, thresh=(.5, 1.25))
+    abs_sobel_thresh_x = abs_sobel_thresh(gray_image, orient='x', sobel_kernel=kernel_size, thresh=(10, 255))
+    abs_sobel_thresh_y = abs_sobel_thresh(gray_image, orient='y', sobel_kernel=kernel_size, thresh=(20, 255))
+    mag_sobel = mag_thresh(gray_image, sobel_kernel=kernel_size, mag_thresh=(15, 255))
+    dir_sobel = dir_threshold(gray_image, sobel_kernel=kernel_size, thresh=(.45, 1.25))
     sobel_img = np.zeros_like(dir_sobel)
     sobel_img[((abs_sobel_thresh_x == 1) & (abs_sobel_thresh_y == 1)) | ((mag_sobel == 1) & (dir_sobel == 1))] = 1  
     
@@ -553,13 +602,13 @@ def process_video(img):
     roi_image = region_of_interest(combine_image, vertices)
     
     #apply projective transform
-    birds_eye = apply_projective_transform(M, roi_image)
+    birds_eye = apply_projective_transform(M, np.copy(roi_image))
+    
+    b2 = np.copy(birds_eye)
 
     #find the lanes in the window
-    out_img, left_fitx, right_fitx, left_fit, right_fit, ploty = find_lines_windows(birds_eye)
+    out_image, left_fitx, right_fitx, left_fit, right_fit, ploty, histogram = find_lines_windows(b2)
     
-    
-   
     #get lines based on previous lines
     left = Line()
     left.current_fit = left_fit
@@ -579,12 +628,29 @@ def process_video(img):
     #calculate curvature and display on image
     
     
-    img_show = draw_lines(birds_eye, undistort_image, Minv, new_left.allx, new_right.allx, new_left.ally)
+    img_show, color_warp = draw_lines(birds_eye, undistort_image, Minv, new_left.allx, new_right.allx, new_left.ally)
     curv_image = find_curvature(img_show, new_left.allx, new_right.allx, new_left.best_fit, new_right.best_fit, new_left.ally)
+
+    diagScreen = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    diagScreen[0:720, 0:1280] = img_show
+    diagScreen[0:240, 1280:1600] = cv2.resize(convert_to_3channel(roi_image), (320,240), interpolation=cv2.INTER_AREA) 
+    diagScreen[0:240, 1600:1920] = cv2.resize(convert_to_3channel(birds_eye), (320,240), interpolation=cv2.INTER_AREA)
+    diagScreen[290:530, 1280:1600] = cv2.resize(convert_to_3channel(histogram), (320,240), interpolation=cv2.INTER_AREA)
+    diagScreen[290:530, 1600:1920] = cv2.resize(color_warp, (320,240), interpolation=cv2.INTER_AREA)*4
     
-    return img_show
+    diagScreen[600:1080, 1280:1920] = cv2.resize(out_image, (640,480), interpolation=cv2.INTER_AREA)*4
+    
+    font = cv2.FONT_HERSHEY_COMPLEX
+    middlepanel = np.zeros((120, 1280, 3), dtype=np.uint8)
+    cv2.putText(middlepanel, 'HSL image.    |       sobel image       |       Combined image', (30, 60), font, 1, (255,0,0), 2)
+    diagScreen[720:840, 0:1280] = middlepanel
 
+    diagScreen[840:1080, 0:320] = cv2.resize(convert_to_3channel(hsl_image), (320,240), interpolation=cv2.INTER_AREA)
+    diagScreen[840:1080, 370:690] = cv2.resize(convert_to_3channel(sobel_img), (320,240), interpolation=cv2.INTER_AREA)
+    diagScreen[840:1080, 740:1060] = cv2.resize(convert_to_3channel(combine_image), (320,240), interpolation=cv2.INTER_AREA)
 
+    #return img_show
+    return diagScreen
 
     
 if __name__ == '__main__':
@@ -600,10 +666,23 @@ if __name__ == '__main__':
     img = mpimg.imread('./test_images/straight_lines1.jpg')
     
     #original image
-    src = np.float32([[529,495],[244,685],[760, 495],[1056, 685]])
+    src = np.float32([[585,460],[200,720],[1125, 720],[695, 460]])
 
     #modified image
-    dst = np.float32([[200,20],[200,680],[1000,20],[1000,680]])
+    dst = np.float32([[585,460],[200,720],[1125,720],[695,460]])
+    
+    img_size = (img.shape[1], img.shape[0])
+    src = np.float32(
+        [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
+        [((img_size[0] / 6) - 10), img_size[1]],
+        [(img_size[0] * 5 / 6) + 60, img_size[1]],
+        [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
+    dst = np.float32(
+    	[[(img_size[0] / 4), 0],
+    	[(img_size[0] / 4), img_size[1]],
+    	[(img_size[0] * 3 / 4), img_size[1]],
+    	[(img_size[0] * 3 / 4), 0]])
+
     global M
     M, Minv = get_projective_transform(src, dst)
     
@@ -670,14 +749,19 @@ if __name__ == '__main__':
 
 
     image_files = glob.glob('./test_images/*.jpg')
-    
+    test_images = 1
     i = 0
-    for fname in image_files:
-        #
-        img = mpimg.imread(fname)
-        img_show = process_image(img)
-        cv2.imwrite('output_images/example_output' + str(i) +'.png', img_show)
-        i = i + 1
+    if test_images == 1:
+        for fname in image_files:
+            #
+            img = mpimg.imread(fname)
+            img_show = process_image(img)
+            fig1 = plt.figure('Resulting images')
+            plt.imshow(img_show)
+            #plt.show()
+            #cv2.imwrite('output_images/example_output' + str(i) +'.png', img_show)
+            plt.savefig('output_images/example_output' + str(i) +'.png')
+            i = i + 1
 
 
     white_output = 'output_images/project_video_processed.mp4'
