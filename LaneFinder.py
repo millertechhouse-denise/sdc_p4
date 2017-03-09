@@ -110,9 +110,9 @@ def process_image(img):
     
     #fig1 = plt.figure('Color and Regiion Processing')
     #fig1.add_subplot(2,1,1)
-    #plt.imshow(hp.convert_to_3channel(combine_image))
+    #plt.imshow(cv2.resize(hp.convert_to_3channel(combine_image), (320,240), interpolation=cv2.INTER_AREA))
     #fig1.add_subplot(2,1,2)
-    #plt.imshow(hp.convert_to_3channel(roi_image))
+    #plt.imshow(cv2.resize(hp.convert_to_3channel(roi_image), (320,240), interpolation=cv2.INTER_AREA))
     #plt.show()
     #fig1.savefig('output_images/binary_combo_example.png')
 
