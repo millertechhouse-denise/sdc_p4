@@ -107,6 +107,14 @@ def process_image(img):
     diagScreen[840:1080, 0:320] = cv2.resize(hp.convert_to_3channel(hsl_image), (320,240), interpolation=cv2.INTER_AREA)
     diagScreen[840:1080, 370:690] = cv2.resize(hp.convert_to_3channel(sobel_img), (320,240), interpolation=cv2.INTER_AREA)
     diagScreen[840:1080, 740:1060] = cv2.resize(hp.convert_to_3channel(combine_image), (320,240), interpolation=cv2.INTER_AREA)
+    
+    #fig1 = plt.figure('Color and Regiion Processing')
+    #fig1.add_subplot(2,1,1)
+    #plt.imshow(hp.convert_to_3channel(combine_image))
+    #fig1.add_subplot(2,1,2)
+    #plt.imshow(hp.convert_to_3channel(roi_image))
+    #plt.show()
+    #fig1.savefig('output_images/binary_combo_example.png')
 
     #return img_show
     return diagScreen
