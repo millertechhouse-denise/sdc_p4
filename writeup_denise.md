@@ -23,7 +23,7 @@ The goals / steps of this project are the following:
 [image3]: ./output_images/binary_combo_example.png "Binary Example"
 [image4]: ./output_images/warped_straight_lines.png "Warp Example"
 [image5]: ./output_images/color_fit_lines.png "Fit Visual"
-[image6]: ./output_images/example_output1.png "Output"
+[image6]: ./output_images/example_output8.png "Output"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 ###Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
