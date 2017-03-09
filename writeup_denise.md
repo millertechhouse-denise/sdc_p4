@@ -24,8 +24,6 @@ The goals / steps of this project are the following:
 [image4]: ./output_images/warped_straight_lines.png "Warp Example"
 [image5]: ./output_images/color_fit_lines.png "Fit Visual"
 [image6]: ./output_images/example_output1.png "Output"
-[video1]: ./output_images/project_video_processed.mp4 "Video"
-[video2]: ./output_images/project_video_diagnostics.mp4 "Diagnostic Video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 ###Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -104,7 +102,7 @@ This can be found in lines helper_functions lines 130-170.
 
 ####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-Drawing the lane area back to the image can be found in function draw_lines in lines 288-319 of helper_functions.py.  An example is below:
+Drawing the lane area back to the image can be found in function draw_lines in lines 288-319 of helper_functions.py.  An example is below.  This also shows the diagnostic window.
 
 ![alt text][image6]
 
@@ -115,11 +113,11 @@ Drawing the lane area back to the image can be found in function draw_lines in l
 ####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
 Here's a [link to my video result](./output_images/project_video_processed.mp4)
-![alt text][video1]
+
 
 In order to determine where the pipeline has difficulties, I created a video with a diagnostic view.  
 Here's a [link to my video diagnostic](./output_images/project_video_diagnostics.mp4)
-![alt text][video2]
+
 
 ---
 
