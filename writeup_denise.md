@@ -116,7 +116,7 @@ Here's a [link to my video result](./output_images/project_video_processed.mp4)
 
 
 In order to determine where the pipeline has difficulties, I created a video with a diagnostic view.  
-Here's a [link to my video diagnostic](./output_images/project_video_diagnostics.mp4)
+Here's a [link to my video diagnostic](./output_images/project_video_diagnostic.mp4)
 
 
 ---
